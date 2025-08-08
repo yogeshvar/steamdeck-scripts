@@ -153,7 +153,7 @@ get_random_animation() {
     # Add to history
     echo "$selected_animation" >> "$history_file"
     
-    log "Selected random $animation_type animation: $selected_animation"
+    log "Selected random $animation_type animation: $selected_animation (from $animations_dir)"
     echo "$selected_animation"
     return 0
 }
@@ -348,12 +348,15 @@ change_animations_on_event() {
     local event_type="$1"
     log "Animation change triggered by: $event_type"
     
-    # Always select new random animations on each event
+    # Select different animations based on event type
     case "$event_type" in
-        "boot"|"wake"|"suspend")
-            log "Selecting new random animations for $event_type"
+        "boot"|"wake")
+            log "System boot/wake detected - selecting new boot animation for next boot"
             install_boot_animation
             install_steam_ui_boot
+            ;;
+        "suspend")
+            log "System suspend detected - selecting new suspend animation for next suspend"
             install_suspend_animation
             install_steam_ui_suspend
             ;;
@@ -387,10 +390,17 @@ while true; do
     
     # Monitor for suspend/wake by checking for recent suspend events in journal
     if command -v journalctl >/dev/null 2>&1; then
-        # Check for recent suspend/resume events (within last 35 seconds)
-        suspend_events=$(journalctl --since "35 seconds ago" --grep "suspend\|resume" --no-pager -q 2>/dev/null | wc -l)
+        # Check for recent suspend events (within last 35 seconds)
+        suspend_events=$(journalctl --since "35 seconds ago" --grep "suspend" --no-pager -q 2>/dev/null | wc -l)
+        resume_events=$(journalctl --since "35 seconds ago" --grep "resume" --no-pager -q 2>/dev/null | wc -l)
+        
         if [ "$suspend_events" -gt 0 ]; then
-            log "Suspend/wake event detected"
+            log "Suspend event detected - selecting new animations for next suspend"
+            change_animations_on_event "suspend"
+        fi
+        
+        if [ "$resume_events" -gt 0 ]; then
+            log "Wake/resume event detected - selecting new animations for next boot"
             change_animations_on_event "wake"
         fi
     fi
