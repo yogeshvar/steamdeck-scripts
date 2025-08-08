@@ -160,6 +160,12 @@ get_random_animation() {
 
 # Function to install random boot animation (Plymouth method)
 install_boot_animation() {
+    # Check if Plymouth boot video file exists
+    if [ ! -f "$DEFAULT_BOOT" ]; then
+        log "Plymouth boot video not found at $DEFAULT_BOOT - skipping system boot animation"
+        return
+    fi
+    
     # Backup original if backup doesn't exist
     if [ ! -f "${DEFAULT_BOOT}.original" ]; then
         log "Backing up original system boot animation"
@@ -199,7 +205,18 @@ install_steam_ui_boot() {
     # Re-source config to get updated CURRENT_BOOT
     source "$CONFIG_FILE"
     
-    # Use the same boot animation as system boot
+    # If no CURRENT_BOOT is set (Plymouth method skipped), select one now
+    if [[ -z "$CURRENT_BOOT" ]]; then
+        local selected_boot
+        selected_boot=$(get_random_animation "$BOOT_ANIMATIONS_DIR" "$BOOT_HISTORY_FILE" "boot")
+        if [ $? -eq 0 ] && [ -n "$selected_boot" ]; then
+            sed -i "s/^CURRENT_BOOT=.*/CURRENT_BOOT=$selected_boot/" "$CONFIG_FILE"
+            CURRENT_BOOT="$selected_boot"
+            log "Selected random boot animation for Steam UI: $selected_boot"
+        fi
+    fi
+    
+    # Use the selected boot animation
     if [[ -n "$CURRENT_BOOT" && -f "$BOOT_ANIMATIONS_DIR/$CURRENT_BOOT" ]]; then
         log "Installing Steam UI boot animation: $CURRENT_BOOT"
         cp "$BOOT_ANIMATIONS_DIR/$CURRENT_BOOT" "$STEAM_BOOT_FILE"
@@ -219,6 +236,12 @@ install_steam_ui_boot() {
 
 # Function to install random suspend animation (Plymouth method)
 install_suspend_animation() {
+    # Check if Plymouth suspend video file exists
+    if [ ! -f "$DEFAULT_SUSPEND" ]; then
+        log "Plymouth suspend video not found at $DEFAULT_SUSPEND - skipping system suspend animation"
+        return
+    fi
+    
     # Backup original if backup doesn't exist
     if [ ! -f "${DEFAULT_SUSPEND}.original" ]; then
         log "Backing up original suspend animation"
@@ -260,7 +283,18 @@ install_steam_ui_suspend() {
     # Re-source config to get updated CURRENT_SUSPEND
     source "$CONFIG_FILE"
     
-    # Use the same suspend animation as system suspend
+    # If no CURRENT_SUSPEND is set (Plymouth method skipped), select one now
+    if [[ -z "$CURRENT_SUSPEND" ]]; then
+        local selected_suspend
+        selected_suspend=$(get_random_animation "$SUSPEND_ANIMATIONS_DIR" "$SUSPEND_HISTORY_FILE" "suspend")
+        if [ $? -eq 0 ] && [ -n "$selected_suspend" ]; then
+            sed -i "s/^CURRENT_SUSPEND=.*/CURRENT_SUSPEND=$selected_suspend/" "$CONFIG_FILE"
+            CURRENT_SUSPEND="$selected_suspend"
+            log "Selected random suspend animation for Steam UI: $selected_suspend"
+        fi
+    fi
+    
+    # Use the selected suspend animation
     if [[ -n "$CURRENT_SUSPEND" && -f "$SUSPEND_ANIMATIONS_DIR/$CURRENT_SUSPEND" ]]; then
         log "Installing Steam UI suspend animations: $CURRENT_SUSPEND"
         # Copy to both suspend animation files used by Steam
