@@ -78,18 +78,49 @@ fi
 # Source the config file
 source "$CONFIG_FILE"
 
+# Function to validate animation file for Steam UI compatibility
+validate_animation() {
+    local file_path="$1"
+    local name=$(basename "$file_path")
+    
+    # Skip known problematic animations by name
+    case "$name" in
+        "knuckles_the_screensaver.webm")
+            log "Skipping $name - known to cause Steam UI freeze (negative start time)"
+            return 1
+            ;;
+    esac
+    
+    # Check if ffprobe is available for further validation
+    if ! command -v ffprobe >/dev/null 2>&1; then
+        return 0  # Skip further validation if ffprobe not available
+    fi
+    
+    # Check for negative start time which can cause Steam UI issues
+    local start_time=$(ffprobe "$file_path" -v quiet -show_entries format=start_time -of csv=p=0 2>/dev/null)
+    if [[ "$start_time" =~ ^-.*$ ]]; then
+        log "Skipping $name - negative start time ($start_time) can cause Steam UI freeze"
+        return 1
+    fi
+    
+    return 0
+}
+
 # Function to get random animation without repeating recent ones
 get_random_animation() {
     local animations_dir="$1"
     local history_file="$2"
     local animation_type="$3"
     
-    # Get all available animations
+    # Get all available animations (with validation)
     local available_animations=()
     for anim in "$animations_dir"/*.webm; do
         if [ -f "$anim" ]; then
             local name=$(basename "$anim")
-            available_animations+=("$name")
+            # Validate animation before adding to available list
+            if validate_animation "$anim"; then
+                available_animations+=("$name")
+            fi
         fi
     done
     
@@ -394,13 +425,15 @@ while true; do
         suspend_events=$(journalctl --since "35 seconds ago" --grep "suspend" --no-pager -q 2>/dev/null | wc -l)
         resume_events=$(journalctl --since "35 seconds ago" --grep "resume" --no-pager -q 2>/dev/null | wc -l)
         
-        if [ "$suspend_events" -gt 0 ]; then
+        # Only process one event type per cycle to avoid conflicts
+        if [ "$suspend_events" -gt 0 ] && [ "$resume_events" -eq 0 ]; then
             log "Suspend event detected - selecting new animations for next suspend"
             change_animations_on_event "suspend"
-        fi
-        
-        if [ "$resume_events" -gt 0 ]; then
+        elif [ "$resume_events" -gt 0 ] && [ "$suspend_events" -eq 0 ]; then
             log "Wake/resume event detected - selecting new animations for next boot"
+            change_animations_on_event "wake"
+        elif [ "$suspend_events" -gt 0 ] && [ "$resume_events" -gt 0 ]; then
+            log "Both suspend and resume events detected - processing as wake event"
             change_animations_on_event "wake"
         fi
     fi
