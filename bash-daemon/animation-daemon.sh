@@ -25,9 +25,9 @@ STEAM_ANIMATIONS_DIR="/home/deck/.steam/root/config/uioverrides/movies"
 # Steam UI boot animation
 STEAM_BOOT_FILE="${STEAM_ANIMATIONS_DIR}/deck_startup.webm"
 
-# Steam UI suspend animations
-STEAM_SUSPEND_FILE="${STEAM_ANIMATIONS_DIR}/deck-suspend-animation.webm"
-STEAM_SUSPEND_FROM_THROBBER="${STEAM_ANIMATIONS_DIR}/deck-suspend-animation-from-throbber.webm"
+# Steam UI suspend animations  
+STEAM_SUSPEND_FILE="${STEAM_ANIMATIONS_DIR}/steam_os_suspend.webm"
+STEAM_SUSPEND_FROM_THROBBER="${STEAM_ANIMATIONS_DIR}/steam_os_suspend_from_throbber.webm"
 
 # Steam CSS file for fullscreen support
 STEAM_CSS_FILE="/home/deck/.local/share/Steam/steamui/css/library.css"
@@ -196,6 +196,9 @@ install_steam_ui_boot() {
         cp "$STEAM_BOOT_FILE" "${STEAM_BOOT_FILE}.original"
     fi
     
+    # Re-source config to get updated CURRENT_BOOT
+    source "$CONFIG_FILE"
+    
     # Use the same boot animation as system boot
     if [[ -n "$CURRENT_BOOT" && -f "$BOOT_ANIMATIONS_DIR/$CURRENT_BOOT" ]]; then
         log "Installing Steam UI boot animation: $CURRENT_BOOT"
@@ -203,7 +206,7 @@ install_steam_ui_boot() {
         # Set proper ownership
         chown deck:deck "$STEAM_BOOT_FILE"
     else
-        log "No Steam UI boot animation to install"
+        log "No Steam UI boot animation to install (CURRENT_BOOT: '$CURRENT_BOOT')"
         # Restore original if it exists
         if [ -f "${STEAM_BOOT_FILE}.original" ]; then
             cp "${STEAM_BOOT_FILE}.original" "$STEAM_BOOT_FILE"
@@ -254,6 +257,9 @@ install_steam_ui_suspend() {
         fi
     done
     
+    # Re-source config to get updated CURRENT_SUSPEND
+    source "$CONFIG_FILE"
+    
     # Use the same suspend animation as system suspend
     if [[ -n "$CURRENT_SUSPEND" && -f "$SUSPEND_ANIMATIONS_DIR/$CURRENT_SUSPEND" ]]; then
         log "Installing Steam UI suspend animations: $CURRENT_SUSPEND"
@@ -263,7 +269,7 @@ install_steam_ui_suspend() {
         # Set proper ownership
         chown deck:deck "$STEAM_SUSPEND_FILE" "$STEAM_SUSPEND_FROM_THROBBER"
     else
-        log "No Steam UI suspend animations to install"
+        log "No Steam UI suspend animations to install (CURRENT_SUSPEND: '$CURRENT_SUSPEND')"
         # Restore originals if they exist
         for file in "$STEAM_SUSPEND_FILE" "$STEAM_SUSPEND_FROM_THROBBER"; do
             if [ -f "${file}.original" ]; then
@@ -331,6 +337,7 @@ enable_steam_fullscreen
 # Monitor for system events and change animations
 log "Starting event monitor for animation changes"
 last_boot_time=$(stat -c %Y /proc/uptime 2>/dev/null || echo "0")
+css_check_counter=0
 
 while true; do
     # Check every 30 seconds for system state changes
@@ -354,12 +361,15 @@ while true; do
         fi
     fi
     
-    # Also check for changes in CSS file (in case it's updated by Steam)
-    if [ -f "$STEAM_CSS_FILE" ] && [ -f "${STEAM_CSS_FILE}.original" ]; then
-        if [[ "$STEAM_FULLSCREEN_ENABLED" == "true" && "$USE_STEAM_UI_METHOD" == "true" ]]; then
-            if ! grep -q "$STEAM_CSS_REPLACE" "$STEAM_CSS_FILE"; then
-                log "Steam CSS file changed, reapplying fullscreen modification"
-                enable_steam_fullscreen
+    # Check CSS file less frequently (only every 5 minutes instead of 30 seconds)
+    css_check_counter=$((css_check_counter + 1))
+    if [ $((css_check_counter % 10)) -eq 0 ]; then  # Check every 10 cycles = 5 minutes
+        if [ -f "$STEAM_CSS_FILE" ] && [ -f "${STEAM_CSS_FILE}.original" ]; then
+            if [[ "$STEAM_FULLSCREEN_ENABLED" == "true" && "$USE_STEAM_UI_METHOD" == "true" ]]; then
+                if ! grep -q "$STEAM_CSS_REPLACE" "$STEAM_CSS_FILE"; then
+                    log "Steam CSS file changed, reapplying fullscreen modification"
+                    enable_steam_fullscreen
+                fi
             fi
         fi
     fi

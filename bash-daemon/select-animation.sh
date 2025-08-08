@@ -18,8 +18,8 @@ CONFIG_FILE="${ANIMATION_DIR}/config.conf"
 # Steam UI related paths
 STEAM_ANIMATIONS_DIR="/home/deck/.steam/root/config/uioverrides/movies"
 STEAM_BOOT_FILE="${STEAM_ANIMATIONS_DIR}/deck_startup.webm"
-STEAM_SUSPEND_FILE="${STEAM_ANIMATIONS_DIR}/deck-suspend-animation.webm"
-STEAM_SUSPEND_FROM_THROBBER="${STEAM_ANIMATIONS_DIR}/deck-suspend-animation-from-throbber.webm"
+STEAM_SUSPEND_FILE="${STEAM_ANIMATIONS_DIR}/steam_os_suspend.webm"
+STEAM_SUSPEND_FROM_THROBBER="${STEAM_ANIMATIONS_DIR}/steam_os_suspend_from_throbber.webm"
 STEAM_CSS_FILE="/home/deck/.local/share/Steam/steamui/css/library.css"
 
 # Make sure animation directories exist
